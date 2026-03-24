@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supabase 待办事项 Demo</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+  }
+
+  /* ── 顶栏 ── */
+  header {
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+  .logo-dot { width: 10px; height: 10px; border-radius: 50%; background: #3dd598; }
+  .user-info { display: flex; align-items: center; gap: 12px; font-size: 14px; color: #94a3b8; }
+  #signOutBtn {
+    background: transparent;
+    border: 1px solid #475569;
+    color: #94a3b8;
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all .2s;
+  }
+  #signOutBtn:hover { border-color: #ef4444; color: #ef4444; }
+  .realtime-badge {
+    display: flex; align-items: center; gap: 6px;
+    background: #052e16;
+    border: 1px solid #16a34a;
+    color: #4ade80;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+  }
+  .realtime-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* ── 登录页 ── */
+  #authPage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 56px);
+    padding: 24px;
+  }
+  .auth-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 16px;
+    padding: 40px;
+    width: 100%;
+    max-width: 420px;
+  }
+  .auth-card h2 { font-size: 24px; margin-bottom: 8px; }
+  .auth-card p { color: #64748b; font-size: 14px; margin-bottom: 32px; }
+  .tab-row { display: flex; gap: 4px; margin-bottom: 28px; background: #0f172a; padding: 4px; border-radius: 10px; }
+  .tab-btn {
+    flex: 1; padding: 8px; border: none; border-radius: 7px; cursor: pointer;
+    font-size: 14px; font-weight: 500; transition: all .2s;
+    background: transparent; color: #64748b;
+  }
+  .tab-btn.active { background: #3dd598; color: #0f172a; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
+  .form-group input {
+    width: 100%; padding: 10px 14px;
+    background: #0f172a; border: 1px solid #334155;
+    border-radius: 8px; color: #e2e8f0; font-size: 14px;
+    outline: none; transition: border-color .2s;
+  }
+  .form-group input:focus { border-color: #3dd598; }
+  .btn-primary {
+    width: 100%; padding: 11px;
+    background: #3dd598; color: #0f172a;
+    border: none; border-radius: 8px;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: background .2s; margin-top: 8px;
+  }
+  .btn-primary:hover { background: #34d399; }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .auth-error { background: #450a0a; border: 1px solid #7f1d1d; color: #fca5a5; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 12px; display: none; }
+  .auth-success { background: #052e16; border: 1px solid #166534; color: #86efac; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 12px; display: none; }
+
+  /* ── 主应用 ── */
+  #appPage { display: none; padding: 24px; max-width: 720px; margin: 0 auto; }
+
+  .add-row { display: flex; gap: 10px; margin-bottom: 24px; }
+  #newTodoInput {
+    flex: 1; padding: 11px 16px;
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 10px; color: #e2e8f0; font-size: 15px;
+    outline: none; transition: border-color .2s;
+  }
+  #newTodoInput:focus { border-color: #3dd598; }
+  #addBtn {
+    padding: 0 20px;
+    background: #3dd598; color: #0f172a;
+    border: none; border-radius: 10px;
+    font-size: 22px; font-weight: 700; cursor: pointer;
+    transition: background .2s; line-height: 1;
+  }
+  #addBtn:hover { background: #34d399; }
+
+  .filter-row { display: flex; gap: 8px; margin-bottom: 20px; }
+  .filter-btn {
+    padding: 5px 14px; border-radius: 20px; font-size: 13px; cursor: pointer;
+    background: transparent; border: 1px solid #334155; color: #94a3b8;
+    transition: all .2s;
+  }
+  .filter-btn.active { background: #3dd598; border-color: #3dd598; color: #0f172a; font-weight: 600; }
+
+  #stats { font-size: 13px; color: #64748b; margin-bottom: 16px; }
+
+  #todoList { list-style: none; }
+  .todo-item {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: border-color .2s, opacity .3s;
+    animation: slideIn .25s ease;
+  }
+  @keyframes slideIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+  .todo-item.completed { opacity: .55; }
+  .todo-item.completed .todo-title { text-decoration: line-through; color: #475569; }
+
+  .todo-check {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid #475569; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .2s; flex-shrink: 0;
+  }
+  .todo-check.done { background: #3dd598; border-color: #3dd598; }
+  .todo-check.done::after { content: '✓'; color: #0f172a; font-size: 12px; font-weight: 700; }
+
+  .todo-title { flex: 1; font-size: 15px; }
+  .todo-meta { font-size: 12px; color: #475569; }
+  .todo-del {
+    background: transparent; border: none; cursor: pointer;
+    color: #475569; font-size: 18px; padding: 4px 6px;
+    border-radius: 6px; transition: all .2s;
+  }
+  .todo-del:hover { color: #ef4444; background: #450a0a; }
+
+  .empty-state { text-align: center; padding: 60px 24px; color: #475569; }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+  /* 通知 toast */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: #1e293b; border: 1px solid #3dd598; color: #e2e8f0;
+    padding: 12px 20px; border-radius: 10px; font-size: 14px;
+    opacity: 0; pointer-events: none;
+    transition: opacity .3s; z-index: 999;
+  }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    Supabase Todo Demo
+  </div>
+  <div id="headerRight" style="display:none">
+    <div class="realtime-badge" id="realtimeBadge" style="display:none">
+      <div class="realtime-dot"></div>实时同步中
+    </div>
+  </div>
+  <div class="user-info" id="headerUser" style="display:none">
+    <span id="userEmail"></span>
+    <button id="signOutBtn">退出</button>
+  </div>
+</header>
+
+<!-- 登录/注册页 -->
+<div id="authPage">
+  <div class="auth-card">
+    <h2>欢迎使用</h2>
+    <p>Supabase 待办事项应用 · 实时同步 · 用户隔离</p>
+
+    <div class="tab-row">
+      <button class="tab-btn active" id="tabLogin" onclick="switchTab('login')">登 录</button>
+      <button class="tab-btn" id="tabSignup" onclick="switchTab('signup')">注 册</button>
+    </div>
+
+    <div class="form-group">
+      <label>邮箱地址</label>
+      <input type="email" id="emailInput" placeholder="demo@example.com" />
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" id="passwordInput" placeholder="最少 6 位" onkeydown="if(event.key==='Enter')authSubmit()" />
+    </div>
+    <button class="btn-primary" id="authBtn" onclick="authSubmit()">登 录</button>
+    <div class="auth-error" id="authError"></div>
+    <div class="auth-success" id="authSuccess"></div>
+  </div>
+</div>
+
+<!-- 主应用页 -->
+<div id="appPage">
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; margin-top:8px">
+    <h1 style="font-size:22px">我的待办事项</h1>
+  </div>
+
+  <div class="add-row">
+    <input id="newTodoInput" placeholder="添加新的待办事项，按 Enter 或点击 +" onkeydown="if(event.key==='Enter')addTodo()" />
+    <button id="addBtn" onclick="addTodo()">+</button>
+  </div>
+
+  <div class="filter-row">
+    <button class="filter-btn active" onclick="setFilter('all', this)">全部</button>
+    <button class="filter-btn" onclick="setFilter('active', this)">进行中</button>
+    <button class="filter-btn" onclick="setFilter('completed', this)">已完成</button>
+  </div>
+
+  <div id="stats"></div>
+  <ul id="todoList"></ul>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── Supabase 配置 ──
+const SUPABASE_URL = 'http://127.0.0.1:54321'
+const SUPABASE_ANON_KEY = 'sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH'
+
+const { createClient } = supabase
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+// ── 状态 ──
+let currentUser = null
+let todos = []
+let filter = 'all'
+let realtimeChannel = null
+let authMode = 'login'
+
+// ── 工具 ──
+function toast(msg) {
+  const el = document.getElementById('toast')
+  el.textContent = msg
+  el.classList.add('show')
+  setTimeout(() => el.classList.remove('show'), 2500)
+}
+
+function showError(msg) {
+  const el = document.getElementById('authError')
+  el.textContent = msg
+  el.style.display = 'block'
+  document.getElementById('authSuccess').style.display = 'none'
+}
+
+function showSuccess(msg) {
+  const el = document.getElementById('authSuccess')
+  el.textContent = msg
+  el.style.display = 'block'
+  document.getElementById('authError').style.display = 'none'
+}
+
+function switchTab(mode) {
+  authMode = mode
+  document.getElementById('tabLogin').classList.toggle('active', mode === 'login')
+  document.getElementById('tabSignup').classList.toggle('active', mode === 'signup')
+  document.getElementById('authBtn').textContent = mode === 'login' ? '登 录' : '注 册'
+  document.getElementById('authError').style.display = 'none'
+  document.getElementById('authSuccess').style.display = 'none'
+}
+
+// ── 认证 ──
+async function authSubmit() {
+  const email = document.getElementById('emailInput').value.trim()
+  const password = document.getElementById('passwordInput').value
+  if (!email || !password) return showError('请填写邮箱和密码')
+
+  const btn = document.getElementById('authBtn')
+  btn.disabled = true
+  btn.textContent = '处理中...'
+
+  try {
+    if (authMode === 'signup') {
+      const { data, error } = await sb.auth.signUp({ email, password })
+      if (error) throw error
+      if (data.user && !data.session) {
+        // 本地 Supabase 通常不需要邮件确认，直接登录
+        showSuccess('注册成功！正在登录...')
+        await doSignIn(email, password)
+      } else if (data.session) {
+        onSignedIn(data.user)
+      }
+    } else {
+      await doSignIn(email, password)
+    }
+  } catch (e) {
+    showError(e.message || '操作失败')
+  } finally {
+    btn.disabled = false
+    btn.textContent = authMode === 'login' ? '登 录' : '注 册'
+  }
+}
+
+async function doSignIn(email, password) {
+  const { data, error } = await sb.auth.signInWithPassword({ email, password })
+  if (error) throw error
+  onSignedIn(data.user)
+}
+
+function onSignedIn(user) {
+  currentUser = user
+  document.getElementById('authPage').style.display = 'none'
+  document.getElementById('appPage').style.display = 'block'
+  document.getElementById('headerUser').style.display = 'flex'
+  document.getElementById('headerRight').style.display = 'flex'
+  document.getElementById('userEmail').textContent = user.email
+  loadTodos()
+  subscribeRealtime()
+}
+
+document.getElementById('signOutBtn').onclick = async () => {
+  await sb.auth.signOut()
+  if (realtimeChannel) realtimeChannel.unsubscribe()
+  currentUser = null
+  todos = []
+  document.getElementById('appPage').style.display = 'none'
+  document.getElementById('authPage').style.display = 'flex'
+  document.getElementById('headerUser').style.display = 'none'
+  document.getElementById('headerRight').style.display = 'none'
+  document.getElementById('realtimeBadge').style.display = 'none'
+  document.getElementById('authError').style.display = 'none'
+  document.getElementById('authSuccess').style.display = 'none'
+}
+
+// ── 数据操作 ──
+async function loadTodos() {
+  const { data, error } = await sb
+    .from('todos')
+    .select('*')
+    .order('created_at', { ascending: false })
+  if (error) { toast('加载失败: ' + error.message); return }
+  todos = data || []
+  renderTodos()
+}
+
+async function addTodo() {
+  const input = document.getElementById('newTodoInput')
+  const title = input.value.trim()
+  if (!title) return
+  input.value = ''
+
+  const { error } = await sb
+    .from('todos')
+    .insert({ title, user_id: currentUser.id })
+  if (error) toast('添加失败: ' + error.message)
+}
+
+async function toggleTodo(id, completed) {
+  const { error } = await sb
+    .from('todos')
+    .update({ completed: !completed })
+    .eq('id', id)
+  if (error) toast('更新失败: ' + error.message)
+}
+
+async function deleteTodo(id) {
+  const { error } = await sb
+    .from('todos')
+    .delete()
+    .eq('id', id)
+  if (error) toast('删除失败: ' + error.message)
+}
+
+// ── 实时订阅 ──
+function subscribeRealtime() {
+  realtimeChannel = sb
+    .channel('todos-realtime')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'todos',
+      filter: `user_id=eq.${currentUser.id}`
+    }, (payload) => {
+      console.log('[Realtime]', payload.eventType, payload)
+      if (payload.eventType === 'INSERT') {
+        todos.unshift(payload.new)
+        toast('✨ 新待办已同步')
+      } else if (payload.eventType === 'UPDATE') {
+        const idx = todos.findIndex(t => t.id === payload.new.id)
+        if (idx !== -1) todos[idx] = payload.new
+      } else if (payload.eventType === 'DELETE') {
+        todos = todos.filter(t => t.id !== payload.old.id)
+        toast('🗑️ 待办已删除')
+      }
+      renderTodos()
+    })
+    .subscribe((status) => {
+      console.log('[Realtime] status:', status)
+      if (status === 'SUBSCRIBED') {
+        document.getElementById('realtimeBadge').style.display = 'flex'
+      }
+    })
+}
+
+// ── 渲染 ──
+function setFilter(f, btn) {
+  filter = f
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'))
+  btn.classList.add('active')
+  renderTodos()
+}
+
+function renderTodos() {
+  const list = document.getElementById('todoList')
+  const total = todos.length
+  const done = todos.filter(t => t.completed).length
+
+  document.getElementById('stats').textContent =
+    `共 ${total} 项 · 已完成 ${done} 项 · 待完成 ${total - done} 项`
+
+  const filtered = todos.filter(t => {
+    if (filter === 'active') return !t.completed
+    if (filter === 'completed') return t.completed
+    return true
+  })
+
+  if (filtered.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">${filter === 'completed' ? '🎉' : '📋'}</div>
+        <div>${filter === 'completed' ? '还没有完成的事项' : '暂无待办事项，添加一个吧！'}</div>
+      </div>`
+    return
+  }
+
+  list.innerHTML = filtered.map(todo => `
+    <li class="todo-item ${todo.completed ? 'completed' : ''}">
+      <div class="todo-check ${todo.completed ? 'done' : ''}"
+           onclick="toggleTodo(${todo.id}, ${todo.completed})"></div>
+      <span class="todo-title">${escHtml(todo.title)}</span>
+      <span class="todo-meta">${formatDate(todo.created_at)}</span>
+      <button class="todo-del" onclick="deleteTodo(${todo.id})" title="删除">×</button>
+    </li>
+  `).join('')
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+}
+
+function formatDate(iso) {
+  const d = new Date(iso)
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
+// ── 初始化：检查是否已登录 ──
+;(async () => {
+  const { data: { session } } = await sb.auth.getSession()
+  if (session) {
+    onSignedIn(session.user)
+  }
+})()
+</script>
+</body>
+</html>

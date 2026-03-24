@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:news.ycombinator.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:supabase.com)",
+      "WebFetch(domain:workers.cloudflare.com)",
+      "WebFetch(domain:hono.dev)",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(python create_supabase_ppt.py)",
+      "Bash(python -c \"from pptx.dml.color import RGBColor; print\\(''success''\\)\")",
+      "Bash(curl -s http://localhost:54321/rest/v1/)",
+      "Bash(curl -s http://localhost:8000/rest/v1/)",
+      "Bash(docker ps:*)",
+      "Read(//d/tmp/**)",
+      "Bash(/c/Users/wang/scoop/apps/supabase/current/supabase.exe status:*)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(e\\) for c in d for e in c.get\\(''''Config'''',{}\\).get\\(''''Env'''',[]\\)]\")",
+      "Bash(curl -s -X POST \"http://127.0.0.1:54321/auth/v1/signup\" -H \"Content-Type: application/json\" -H \"apikey: sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH\" -d \"{\"\"email\"\":\"\"test@demo.com\"\",\"\"password\"\":\"\"demo1234\"\"}\")",
+      "Bash(python3 -c \":*)",
+      "Bash(node -e \":*)"
+    ]
+  }
+}
